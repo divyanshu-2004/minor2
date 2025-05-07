@@ -128,6 +128,7 @@ class MeetingRoom {
 
   endCall() {
       if (confirm('Are you sure you want to leave the meeting?')) {
+          this.endMeeting();
           if (this.stream) {
               this.stream.getTracks().forEach(track => track.stop());
           }
@@ -191,30 +192,47 @@ function updateUI(text, isSummary = false) {
 }
 
 // End meeting and generate summary
-async function endMeeting() {
-  if (recognition && recognition.running) {
-    recognition.stop();
-  }
-  isMeetingActive = false;
+  async endMeeting() {
+    if (this.recognition && this.recognition.running) {
+      this.recognition.stop();
+    }
+    this.isMeetingActive = false;
 
-  // Generate summary
-  try {
-    const response = await fetch('http://localhost:5000/summarize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: transcript })
-    });
+    // Generate summary
+    try {
+      const response = await fetch('http://localhost:5001/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: this.transcript })
+      });
 
-    const data = await response.json();
-    const summary = data.summary || "Failed to generate summary";
-    updateUI(summary, true);
-    sendToServer({ type: "summary", text: summary });
-  } catch (error) {
-    console.error("Error summarizing:", error);
+      const data = await response.json();
+      const summary = data.summary || "Failed to generate summary";
+      this.updateUI(summary, true);
+      this.sendToServer({ type: "summary", text: summary });
+    } catch (error) {
+      console.error("Error summarizing:", error);
+    }
   }
-}
 
 // Handle WebSocket messages
+ws.onmessage = function (event) {
+  const data = JSON.parse(event.data);
+  if (data.type === "summary") {
+    updateUI(data.text, true);
+  }
+};
+
+// Save history on page unload
+window.addEventListener('beforeunload', () => {
+  if (isMeetingActive && transcript.trim()) {
+    fetch('/api/save-meeting', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_transcript: transcript, timestamp: new Date() })
+    });
+  }
+});et messages
 ws.onmessage = function (event) {
   const data = JSON.parse(event.data);
   if (data.type === "summary") {
