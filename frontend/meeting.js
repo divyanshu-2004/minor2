@@ -1,4 +1,4 @@
-const ws = new WebSocket('ws://localhost:8080'); // WebSocket for real-time updates
+const ws = new WebSocket('ws://localhost:8080'); 
 let transcript = "";
 let recognition;
 let isMeetingActive = true;
